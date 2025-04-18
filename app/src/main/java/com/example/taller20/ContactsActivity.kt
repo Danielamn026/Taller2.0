@@ -1,4 +1,4 @@
-package com.example.taller2
+package com.example.taller20
 
 import adapters.ContactsAdapter
 import android.R

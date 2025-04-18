@@ -1,4 +1,4 @@
-package com.example.taller2
+package com.example.taller20
 
 import android.content.Intent
 import android.os.Bundle

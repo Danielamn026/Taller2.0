@@ -39,10 +39,10 @@
             android:name=".CameraActivity"
             android:exported="false" />
         <activity
-            android:name="com.example.taller2.ContactsActivity"
+            android:name=".ContactsActivity"
             android:exported="false" />
         <activity
-            android:name="com.example.taller2.MainActivity"
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
