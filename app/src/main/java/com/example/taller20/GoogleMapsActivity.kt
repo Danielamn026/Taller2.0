@@ -46,6 +46,8 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.tasks.Task
+import com.google.firebase.crashlytics.buildtools.reloc.com.google.common.reflect.TypeToken
+import com.google.gson.Gson
 import java.io.File
 import java.util.Date
 import java.util.Locale
@@ -69,6 +71,10 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var locationCallback : LocationCallback
     private var lastLocation: Location? = null
 
+    private val gson = Gson()
+    private val jsonFileName = "ubications.json"
+
+    // Registra resultado para manejar activacion de GPS, si usuario acepta,se inician updates
     val locationSettings = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
         ActivityResultCallback {
@@ -80,6 +86,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     )
 
+    // Solicita permiso de ubicacion, si concede, verifica configuracion GPS
     val locationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
         ActivityResultCallback {
@@ -113,6 +120,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
+        //Usuario realiza busqueda, se obtiene ubicacion y la muestra
         binding.address.setOnEditorActionListener{ textView, i, keyEvent ->
             if(i == EditorInfo.IME_ACTION_SEARCH){
                 val address = binding.address.text.toString()
@@ -146,10 +154,11 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap = googleMap
 
         // Add a marker in Sydney and move the camera
-        val sydney = LatLng(-34.0, 151.0)
-        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
+        val bogota = LatLng(4.63, -74.10)
+        mMap.addMarker(MarkerOptions().position(bogota).title("Marker en Bogota"))
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(bogota))
 
+        // Listener de long click, borra marcadores, pone uno en la unicacion clickeada
         mMap.setOnMapLongClickListener {
             mMap.clear()
             val address = findAddress(it)
@@ -185,6 +194,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     fun findAddress (location : LatLng):String?{
+        // Obtiene la direccion a partir de coordenadas
         val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 2)
         if(addresses != null && !addresses.isEmpty()){
             val addr = addresses.get(0)
@@ -195,6 +205,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     fun findLocation(address : String):LatLng?{
+        // Obtiene coordenadas a partir de la direccion
         val addresses = geocoder.getFromLocationName(address, 2)
         if(addresses != null && !addresses.isEmpty()){
             val addr = addresses.get(0)
@@ -215,6 +226,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.moveCamera(CameraUpdateFactory.zoomTo(15f))
     }
 
+    // Convierte vector (como icono) a bitmap para usarlo como icono de marcador
     fun bitmapDescriptorFromVector(context : Context, vectorResId : Int) : BitmapDescriptor {
         val vectorDrawable : Drawable = ContextCompat.getDrawable(context, vectorResId)!!
         vectorDrawable.setBounds(0, 0, vectorDrawable.getIntrinsicWidth(), vectorDrawable.getIntrinsicHeight());
@@ -237,6 +249,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun createLocationCallback(): LocationCallback {
         val callback = object : LocationCallback() {
+            // Recibe actualizaciones de ubicacion
             override fun onLocationResult(result: LocationResult) {
                 super.onLocationResult(result)
                 val newLocation = result.lastLocation
@@ -244,6 +257,8 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                     // Si todoo lo primero es null, ponga 0
                     val distance = lastLocation?.distanceTo(newLocation) ?: 0f
 
+                    // Si ubicacion cambia mas de 30m
+                    // Actualiza el marcador con la nueva ubicacion
                     if (lastLocation == null || distance >= 30f) {
                         lastLocation = newLocation
 
@@ -270,17 +285,21 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
             dateHour = getCurrentDateTime()
         )
 
+        // FilesDir directorio privado de la app, nombre archivo
         val archive = File(filesDir, jsonFileName)
+        // Archivo ya existe en almacenamiento interno
         val listaExistente: MutableList<Ubication> = if (archive.exists()) {
             val content = archive.readText()
+            // Si el archivo no está vacío
             if (content.isNotBlank()) {
+                // Define tipo generico MutableList<Ubication> para que Gson sepa como deserializar el Json a una lista
                 val tipo = object : TypeToken<MutableList<Ubication>>() {}.type
+                // Convertir Json a una lista de tipo Ubicacion
                 gson.fromJson(content, tipo)
-            } else mutableListOf()
-        } else mutableListOf()
+            } else mutableListOf()  // Lista vacia mutable, si esta vacio
+        } else mutableListOf() // Lista vacia mutable, si no existe
 
         listaExistente.add(ubication)
-
         val json = gson.toJson(listaExistente)
         archive.writeText(json)
     }
