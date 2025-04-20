@@ -254,6 +254,9 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 super.onLocationResult(result)
                 val newLocation = result.lastLocation
                 if (newLocation != null) {
+                    Toast.makeText(this@GoogleMapsActivity, "lat ${newLocation.latitude}, long ${newLocation.longitude}", Toast.LENGTH_SHORT).show()
+                }
+                if (newLocation != null) {
                     // Si todoo lo primero es null, ponga 0
                     val distance = lastLocation?.distanceTo(newLocation) ?: 0f
 
@@ -305,8 +308,8 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun getCurrentDateTime(): String {
-        val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        return format.format(Date())
+        val formato = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        return formato.format(Date())
     }
 
     fun stopLocationUpdates(){
