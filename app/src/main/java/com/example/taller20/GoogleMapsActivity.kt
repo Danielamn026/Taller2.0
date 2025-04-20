@@ -2,6 +2,7 @@ package com.example.taller20
 
 import models.Ubication
 import android.content.Context
+import android.content.Intent
 import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -135,6 +136,12 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             true
         }
+
+        binding.osmRouteButton.setOnClickListener {
+            val intent = Intent(this, OsmActivity::class.java)
+            intent.putExtra("rutaDesdeArchivo", true)
+            startActivity(intent)
+        }
     }
 
     override fun onResume() {
@@ -153,7 +160,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        // Add a marker in Sydney and move the camera
+        // Add a marker in Bogota and move the camera
         val bogota = LatLng(4.63, -74.10)
         mMap.addMarker(MarkerOptions().position(bogota).title("Marker en Bogota"))
         mMap.moveCamera(CameraUpdateFactory.newLatLng(bogota))
