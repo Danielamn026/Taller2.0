@@ -176,8 +176,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 CoroutineScope(Dispatchers.IO).launch {
                     val jsonData = downloadUrl(url)
                     val routes = DirectionsJSONParser().parse(JSONObject(jsonData))
-                        drawPolyline(routes)
-                    }
+                    drawPolyline(routes)
                 }
             }
         }
@@ -344,4 +343,5 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
+
 }
