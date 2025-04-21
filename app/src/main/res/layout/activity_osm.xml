@@ -9,7 +9,8 @@
     <org.osmdroid.views.MapView
         android:id="@+id/osmMap"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent" >
+    </org.osmdroid.views.MapView>
 
     <EditText
         android:id="@+id/address"
@@ -24,6 +25,15 @@
         android:background="@drawable/round_corners"
         android:inputType="text"
         android:imeOptions="actionSearch"
-        android:textStyle="bold">
-    </EditText>
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/routeButton"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:background="@drawable/round_corners"
+        android:text="Ruta OSM" />
 </RelativeLayout>
