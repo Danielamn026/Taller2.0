@@ -120,7 +120,6 @@ class OsmActivity : AppCompatActivity() {
         locationRequest = createLocationRequest()
         locationCallback = createLocationCallback()
 
-
         // Escuchar pulsación larga para marcar y trazar ruta
         map.overlays.add(createOverlayEvents())
 
@@ -340,19 +339,6 @@ class OsmActivity : AppCompatActivity() {
         Toast.makeText(applicationContext, "Distancia: %.2f metros".format(distance), Toast.LENGTH_SHORT).show()
     }
 
-    fun addMarker(p:GeoPoint, snippet : String, longPressed : Boolean){
-        if(longPressed) {
-            longPressedMarker =
-                createMarker(p, "New Location", snippet, R.drawable.baseline_add_location_24)
-            if (longPressedMarker != null) {
-                map.getOverlays().add(longPressedMarker)
-            }
-        }else{
-            searchMarker = createMarker(p, "Snippet", "", R.drawable.baseline_add_location_24)
-            map.overlays.add(searchMarker)
-        }
-    }
-
     fun addMarker() {
         val markerPoint = GeoPoint(4.62, -74.07)
         val marker = Marker(map)
@@ -431,6 +417,4 @@ class OsmActivity : AppCompatActivity() {
 
         Toast.makeText(this, "Ruta de historial dibujada: ${road.mLength} km", Toast.LENGTH_SHORT).show()
     }
-
-
 }

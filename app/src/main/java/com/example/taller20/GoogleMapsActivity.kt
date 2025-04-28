@@ -1,9 +1,14 @@
 package com.example.taller20
 
-
+import ApiService
+import RouteResponse
+import android.content.Context
 import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -13,12 +18,14 @@ import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
+import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -37,16 +44,17 @@ import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.LocationSettingsResponse
 import com.google.android.gms.location.Priority
 import com.google.android.gms.location.SettingsClient
+import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 
 class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -54,13 +62,17 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mMap: GoogleMap
     val markerPoints = mutableListOf<LatLng>()
     private lateinit var binding: ActivityGoogleMapsBinding
+    private var start : String = ""
+    private var end : String = ""
+    var poly : Polyline? = null
+    private var mostrandoRuta: Boolean = false
 
     //Sensores de luz
     private lateinit var sensorManager : SensorManager
     private var ligthSensor: Sensor? = null
     private lateinit var sensorEventListener: SensorEventListener
 
-    //Direcciones y Geocoder
+    //Direcciones a coordenadas, viceversa
     private lateinit var geocoder: Geocoder
 
     //Location
@@ -114,18 +126,35 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        //Usuario realiza busqueda, se obtiene ubicacion y la muestra
+        //Usuario realiza busqueda de direccion, se obtiene ubicacion y la muestra
         binding.address.setOnEditorActionListener{ textView, i, keyEvent ->
             if(i == EditorInfo.IME_ACTION_SEARCH){
                 val address = binding.address.text.toString()
                 val latlong = findLocation(address)
-                if(this@GoogleMapsActivity::mMap.isInitialized){
+                if(this@GoogleMapsActivity::mMap.isInitialized) {
+                    if (latlong != null && this@GoogleMapsActivity::mMap.isInitialized) {
+                        if (lastLocation == null) {
+                            //Toast.makeText(this@GoogleMapsActivity, "lat ${lastLocation?.latitude}, long ${lastLocation?.longitude}", Toast.LENGTH_SHORT).show()
+                            //Toast.makeText(this, "Waiting for current location...", Toast.LENGTH_SHORT).show()
+                            return@setOnEditorActionListener true
+                        }
+                    }
+                    poly?.remove()
+                    poly = null
+                    mostrandoRuta = false
                     mMap.clear()
+
+                    //Marcador ubicacion actual
+                    val currentLatLng = LatLng(lastLocation!!.latitude, lastLocation!!.longitude)
+                    mMap.addMarker(MarkerOptions().position(currentLatLng).title("Ubicación actual"))
+                    //Marcador direccion buscada
                     mMap.addMarker(MarkerOptions().position(latlong!!).title(address))
+                    start = "${currentLatLng.longitude},${currentLatLng.latitude}"
+                    end = "${latlong.longitude},${latlong.latitude}"
                     mMap.moveCamera(CameraUpdateFactory.newLatLng(latlong))
                     mMap.moveCamera(CameraUpdateFactory.zoomTo(15f))
+                    createRoute()
                 }
-
             }
             true
         }
@@ -149,80 +178,66 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         val bogota = LatLng(4.63, -74.10)
         mMap.addMarker(MarkerOptions().position(bogota).title("Marker en Bogota"))
         mMap.moveCamera(CameraUpdateFactory.newLatLng(bogota))
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(bogota, 15f))
+        mMap.uiSettings.isZoomControlsEnabled = true
 
-        // Listener de long click, borra marcadores, pone uno en la unicacion clickeada
-        mMap.setOnMapClickListener { latLng ->
-            if (markerPoints.size > 1) {
-                markerPoints.clear()
-                mMap.clear()
-            }
+        start = ""
+        end = ""
 
-            markerPoints.add(latLng)
+        // Listener de long click, borra marcadores, pone uno en la ubicacion clickeada
+        mMap.setOnMapLongClickListener {
+            poly?.remove()
+            poly = null
+            mostrandoRuta = false
+            mMap.clear()
 
-            val options = MarkerOptions().position(latLng)
-            if (markerPoints.size == 1) {
-                options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-            } else if (markerPoints.size == 2) {
-                options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
-            }
-            mMap.addMarker(options)
+            //Marcador ubicacion actual
+            val currentLatLng = LatLng(lastLocation!!.latitude, lastLocation!!.longitude)
+            mMap.addMarker(MarkerOptions().position(currentLatLng).title("Ubicación actual"))
+            //Marcador ubicacion clickeada
+            val address = findAddress(it)
+            mMap.addMarker(MarkerOptions().position(it).title(address))
 
-            if (markerPoints.size == 2) {
-                val origin = markerPoints[0]
-                val dest = markerPoints[1]
-                val url = getDirectionsUrl(origin, dest)
+            start = "${currentLatLng.longitude},${currentLatLng.latitude}"
+            end = "${it.longitude},${it.latitude}"
+            createRoute()
+        }
+    }
 
-                // 🔁 Lanzar descarga y parseo
-                CoroutineScope(Dispatchers.IO).launch {
-                    val jsonData = downloadUrl(url)
-                    val routes = DirectionsJSONParser().parse(JSONObject(jsonData))
-                    drawPolyline(routes)
-                }
+    private fun getRetrifit(): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl("https://api.openrouteservice.org/")
+            //Parsea respuesta a JSON
+            .addConverterFactory(GsonConverterFactory.create())
+            //retorna un objeto de tipo retrofit
+            .build()
+    }
+
+    //Metodo que llama interfaz de retrofit
+    private fun createRoute(){
+        mostrandoRuta = true
+        //Todoo lo que se haga, estara en otro hilo, no en el principal
+        CoroutineScope(Dispatchers.IO).launch {
+            val call = getRetrifit().create(ApiService::class.java)
+                .getRoute("5b3ce3597851110001cf624850245a96538a4909acf578056744f5eb", start, end)
+            if(call.isSuccessful) {
+                drawRoute(call.body())
+                call.body()
+            } else {
+                Log.i("aris", "KO")
             }
         }
     }
 
-    fun getDirectionsUrl(origin: LatLng, dest: LatLng): String {
-        val strOrigin = "origin=${origin.latitude},${origin.longitude}"
-        val strDest = "destination=${dest.latitude},${dest.longitude}"
-        val sensor = "sensor=false"
-        val mode = "mode=driving"
-        val parameters = "$strOrigin&$strDest&$sensor&$mode"
-
-        val key = "${API_KEY}" // 🔑 Reemplaza con tu API KEY
-        return "https://maps.googleapis.com/maps/api/directions/json?$parameters&key=$key"
-    }
-
-    suspend fun downloadUrl(strUrl: String): String {
-        val url = URL(strUrl)
-        val urlConnection = url.openConnection() as HttpURLConnection
-        return try {
-            val inputStream = urlConnection.inputStream
-            inputStream.bufferedReader().use { it.readText() }
-        } finally {
-            urlConnection.disconnect()
+    private fun drawRoute(routeResponse: RouteResponse?){
+        val polyLineOptions = PolylineOptions()
+        //Se rellena con la coordenadas que dio el servicio
+        routeResponse?.features?.first()?.geometry?.coordinates?.forEach {
+            polyLineOptions.add(LatLng(it[1], it[0]))
         }
-    }
-
-    fun drawPolyline(routes: List<List<HashMap<String, String>>>) {
-        for (i in routes.indices) {
-            val points = ArrayList<LatLng>()
-            val lineOptions = PolylineOptions()
-
-            val path = routes[i]
-            for (j in path.indices) {
-                val point = path[j]
-                val lat = point["lat"]!!.toDouble()
-                val lng = point["lng"]!!.toDouble()
-                points.add(LatLng(lat, lng))
-            }
-
-            lineOptions.addAll(points)
-            lineOptions.width(12f)
-            lineOptions.color(Color.RED)
-            lineOptions.geodesic(true)
-
-            mMap.addPolyline(lineOptions)
+        //Volver a hilo pirncipal para pintar ruta
+        runOnUiThread {
+            poly = mMap.addPolyline(polyLineOptions)
         }
     }
 
@@ -266,12 +281,10 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
             override fun onLocationResult(result: LocationResult) {
                 super.onLocationResult(result)
                 val newLocation = result.lastLocation
-                if (newLocation != null) {
-                    Toast.makeText(this@GoogleMapsActivity, "lat ${newLocation.latitude}, long ${newLocation.longitude}", Toast.LENGTH_SHORT).show()
-                }
-                if (newLocation != null && lastLocation != null) {
-                        lastLocation = newLocation
 
+                if (newLocation != null) {
+                    lastLocation = newLocation
+                    if (!mostrandoRuta) {
                         val latLng = LatLng(newLocation.latitude, newLocation.longitude)
                         mMap.clear()
                         mMap.addMarker(
@@ -280,33 +293,11 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                                 .title("Ubicación actual")
                         )
                         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-
+                    }
                 }
             }
         }
         return callback
-    }
-
-    fun findAddress (location : LatLng):String?{
-        // Obtiene la direccion a partir de coordenadas
-        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 2)
-        if(addresses != null && !addresses.isEmpty()){
-            val addr = addresses.get(0)
-            val locname = addr.getAddressLine(0)
-            return locname
-        }
-        return null
-    }
-
-    fun findLocation(address : String):LatLng?{
-        // Obtiene coordenadas a partir de la direccion
-        val addresses = geocoder.getFromLocationName(address, 2)
-        if(addresses != null && !addresses.isEmpty()){
-            val addr = addresses.get(0)
-            val location = LatLng(addr.latitude, addr.longitude)
-            return location
-        }
-        return null
     }
 
     fun stopLocationUpdates(){
@@ -342,6 +333,49 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
+    }
+
+    fun findAddress (location : LatLng):String?{
+        // Obtiene la direccion a partir de coordenadas
+        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 2)
+        if(addresses != null && !addresses.isEmpty()){
+            val addr = addresses.get(0)
+            val locname = addr.getAddressLine(0)
+            return locname
+        }
+        return null
+    }
+
+    fun findLocation(address : String):LatLng?{
+        // Obtiene coordenadas a partir de la direccion
+        val addresses = geocoder.getFromLocationName(address, 2)
+        if(addresses != null && !addresses.isEmpty()){
+            val addr = addresses.get(0)
+            val location = LatLng(addr.latitude, addr.longitude)
+            return location
+        }
+        return null
+    }
+
+    fun drawMarker(location : LatLng, description : String?, icon: Int){
+        val addressMarker = mMap.addMarker(MarkerOptions().position(location).icon(bitmapDescriptorFromVector(this,
+            icon)))!!
+        if(description!=null){
+            addressMarker.title=description
+        }
+
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(location))
+        mMap.moveCamera(CameraUpdateFactory.zoomTo(15f))
+    }
+
+    fun bitmapDescriptorFromVector(context : Context, vectorResId : Int) : BitmapDescriptor {
+        val vectorDrawable : Drawable = ContextCompat.getDrawable(context, vectorResId)!!
+        vectorDrawable.setBounds(0, 0, vectorDrawable.getIntrinsicWidth(), vectorDrawable.getIntrinsicHeight());
+        val bitmap = Bitmap.createBitmap(vectorDrawable.getIntrinsicWidth(), vectorDrawable.getIntrinsicHeight(),
+            Bitmap.Config.ARGB_8888);
+        val canvas = Canvas(bitmap)
+        vectorDrawable.draw(canvas)
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
 }
