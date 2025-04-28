@@ -132,13 +132,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 val address = binding.address.text.toString()
                 val latlong = findLocation(address)
                 if(this@GoogleMapsActivity::mMap.isInitialized) {
-                    if (latlong != null && this@GoogleMapsActivity::mMap.isInitialized) {
-                        if (lastLocation == null) {
-                            //Toast.makeText(this@GoogleMapsActivity, "lat ${lastLocation?.latitude}, long ${lastLocation?.longitude}", Toast.LENGTH_SHORT).show()
-                            //Toast.makeText(this, "Waiting for current location...", Toast.LENGTH_SHORT).show()
-                            return@setOnEditorActionListener true
-                        }
-                    }
+
                     poly?.remove()
                     poly = null
                     mostrandoRuta = false
