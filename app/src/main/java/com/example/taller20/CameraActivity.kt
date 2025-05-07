@@ -44,7 +44,7 @@ class CameraActivity : AppCompatActivity() {
             galleryLauncher.launch("image/*")
         }
         binding.CameraButton.setOnClickListener{
-            // Crea archivo pocFromCamera dentro de almacenamiento interno
+            // Crea archivo picFromCamera dentro de almacenamiento interno
             val file = File(getFilesDir(),"picFromCamera")
             // Genera uri para acceder al archivo
             uri = FileProvider.getUriForFile(baseContext,baseContext.packageName+".fileprovider",file)
@@ -58,7 +58,7 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun loadImage(uri: Uri) {
-        // Abre iamgen desde la ruta
+        // Abre imagen desde la ruta
         val imageStream = getContentResolver().openInputStream(uri)
         // Convierte los bytes de la imagen en un objeto que Android puede mostrar
         val bitmap = BitmapFactory.decodeStream(imageStream)

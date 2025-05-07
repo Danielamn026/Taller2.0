@@ -52,7 +52,7 @@ class ContactsActivity : AppCompatActivity() {
             if (shouldShowRequestPermissionRationale(permission)) {
                 Toast.makeText(this, "Necesitamos acceder a tus contactos para mostrarte la lista de los mismos.", Toast.LENGTH_LONG).show()
             }
-            // Solicitu de permiso al usuario
+            // Solicitud de permiso al usuario
             contactsPermission.launch(permission)
         }
         else{

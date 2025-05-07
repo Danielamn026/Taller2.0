@@ -132,7 +132,6 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 val address = binding.address.text.toString()
                 val latlong = findLocation(address)
                 if(this@GoogleMapsActivity::mMap.isInitialized) {
-
                     poly?.remove()
                     poly = null
                     mostrandoRuta = false
@@ -229,7 +228,7 @@ class GoogleMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         routeResponse?.features?.first()?.geometry?.coordinates?.forEach {
             polyLineOptions.add(LatLng(it[1], it[0]))
         }
-        //Volver a hilo pirncipal para pintar ruta
+        //Volver a hilo principal para pintar ruta
         runOnUiThread {
             poly = mMap.addPolyline(polyLineOptions)
         }

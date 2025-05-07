@@ -396,25 +396,43 @@ class OsmActivity : AppCompatActivity() {
             return
         }
 
-        val tipo = object : TypeToken<List<Ubication>>() {}.type
-        val ubicationsList: List<Ubication> = gson.fromJson(file.readText(), tipo)
+        if (map != null) {
+            if(roadOverlay != null){
+                map.getOverlays().remove(roadOverlay);
+            }
+            val tipo = object : TypeToken<List<Ubication>>() {}.type
+            //Lee archivo y lo deserializa
+            val ubicationsList: List<Ubication> = gson.fromJson(file.readText(), tipo)
 
-        if (ubicationsList.size < 2) {
-            Toast.makeText(this, "Se necesitan al menos dos ubicaciones para trazar la ruta", Toast.LENGTH_SHORT).show()
-            return
+            if (ubicationsList.size < 2) {
+                Toast.makeText(
+                    this,
+                    "Se necesitan al menos dos ubicaciones para trazar la ruta",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
+            //Convierte lista de objetos Ubicacion en lista de onjetos GeoPoint
+            val geoPoints = ubicationsList.map { GeoPoint(it.latitude, it.longitude) }
+
+            val road = roadManager.getRoad(ArrayList(geoPoints))
+            //representacion visual de la ruta
+            val overlay = RoadManager.buildRoadOverlay(road)
+            overlay.outlinePaint.color = Color.BLUE
+            overlay.outlinePaint.strokeWidth = 10f
+            //Se pone visual en el mapa
+            map.getOverlays().add(overlay)
+            //Invalida mapa para que actualice y muestre cambios
+            map.invalidate()
+
+            // Centrar en la última ubicación
+            map.controller.animateTo(geoPoints.last())
+
+            Toast.makeText(
+                this,
+                "Ruta de historial dibujada: ${road.mLength} km",
+                Toast.LENGTH_SHORT
+            ).show()
         }
-        val geoPoints = ubicationsList.map { GeoPoint(it.latitude, it.longitude) }
-
-        val road = roadManager.getRoad(ArrayList(geoPoints))
-        val overlay = RoadManager.buildRoadOverlay(road)
-        overlay.outlinePaint.color = Color.BLUE
-        overlay.outlinePaint.strokeWidth = 10f
-        map.overlays.add(overlay)
-        map.invalidate()
-
-        // Centrar en la última ubicación
-        map.controller.animateTo(geoPoints.last())
-
-        Toast.makeText(this, "Ruta de historial dibujada: ${road.mLength} km", Toast.LENGTH_SHORT).show()
     }
 }
